@@ -90,27 +90,13 @@ function row(track) {
 
 function render(state) {
   const configured = Boolean(state.config?.playlist);
-  $('setup').hidden = configured;
+  // A bad saved link must not trap the user: let them paste another one.
+  $('setup').hidden = configured && !state.error;
   $('table-wrap').hidden = !configured;
   setText($('title'), state.playlist?.title || 'Musico');
   renderMeta(state, configured);
-  setText(
-    $('hint'),
-    state.hosted
-      ? 'Public and unlisted playlists only. Hosted rips run from a datacenter IP, which YouTube often blocks; if tracks fail, run Musico on your own machine.'
-      : 'Open the playlist in YouTube Music, then the menu next to its name and Share, Copy link. Musico reads public and unlisted playlists; for a private one, set a cookies browser in musico.config.json.',
-  );
-
-  const failed = state.totals?.failed ?? 0;
-  const blocked = Boolean(state.hosted) && failed > 0 && !state.error;
-  $('banner').hidden = !state.error && !blocked;
-  setText(
-    $('banner'),
-    state.error ||
-      (blocked
-        ? `${failed} ${failed === 1 ? 'track' : 'tracks'} failed. Hosted rips run from a datacenter IP, which YouTube often blocks; run Musico locally for reliable rips.`
-        : ''),
-  );
+  $('banner').hidden = !state.error;
+  setText($('banner'), state.error || '');
 
   if (!configured) {
     $('strip').hidden = true;
@@ -250,11 +236,6 @@ function paintTransport(state, tracks) {
   const button = $('rip');
   button.disabled = running;
   setText(button, running ? 'Ripping…' : state.totals.todo > 0 ? `Rip ${state.totals.todo} new` : 'Rip new');
-
-  // Hosted mode hands the whole session back as one zip.
-  const zip = $('zip');
-  zip.hidden = !(state.hosted && state.zip?.ready);
-  if (state.hosted && state.zip?.ready) setText(zip, `Download ${state.totals.onDisk} MP3 zip`);
 }
 
 function paintEmpty(state, tracks) {
@@ -300,6 +281,12 @@ $('setup-form').addEventListener('submit', async (event) => {
     return;
   }
   $('playlist-url').value = '';
+  const started = await fetch('/api/sync', { method: 'POST' });
+  if (!started.ok) {
+    const error = await started.json().catch(() => ({}));
+    $('banner').hidden = false;
+    setText($('banner'), error.error || 'Could not start the rip.');
+  }
   tick();
 });
 

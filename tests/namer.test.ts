@@ -18,6 +18,16 @@ describe('sanitizeName', () => {
     expect(sanitizeName('///')).toBe('untitled');
   });
 
+  test('keeps a title written in another script', () => {
+    expect(sanitizeName('夜に駆ける')).toBe('夜に駆ける');
+  });
+
+  test('clamps by UTF-8 bytes so non-ASCII names fit the filesystem limit', () => {
+    const name = sanitizeName('音'.repeat(200));
+    expect(Buffer.byteLength(name, 'utf8')).toBeLessThanOrEqual(180);
+    expect(name).not.toBe('untitled');
+  });
+
   test('strips percent signs that would break the yt-dlp output template', () => {
     expect(fileName({ id: 'x1', title: '100% Pure' })).toBe('100 Pure [x1].mp3');
   });

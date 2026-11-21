@@ -7,7 +7,7 @@ import { fileName, killActiveChild, sanitizeName, splitTitle } from './core/down
 import { runSync } from './core/sync';
 import { invalidPlaylistUrl } from './core/ytmusic';
 
-const PORT = 7777;
+const PORT = Number(process.env.PORT) || 7777;
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -20,6 +20,12 @@ function asset(name: string, type: string): Response {
   return new Response(Bun.file(join(ROOT, 'src/web', name)), { headers: { 'content-type': type } });
 }
 
+// Any page can POST to loopback; refuse writes that name a different origin.
+export function sameOrigin(request: Request): boolean {
+  const origin = request.headers.get('origin');
+  return !origin || origin === new URL(request.url).origin;
+}
+
 export function start(): void {
   const db = openDb(join(ROOT, 'data', 'musico.db'));
 
@@ -30,6 +36,10 @@ export function start(): void {
       port: PORT,
       fetch: async (request) => {
         const { pathname } = new URL(request.url);
+
+        if (request.method === 'POST' && !sameOrigin(request)) {
+          return json({ error: 'Cross-origin request refused.' }, 403);
+        }
 
         if (pathname === '/api/state' && request.method === 'GET') return json(buildState(db));
 

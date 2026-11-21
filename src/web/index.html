@@ -38,9 +38,12 @@
             spellcheck="false"
             placeholder="https://music.youtube.com/playlist?list=…"
           />
-          <button type="submit" class="lever">Save playlist</button>
+          <button type="submit" class="lever">Save and rip</button>
         </form>
-        <p class="hint" id="hint"></p>
+        <p class="hint">
+          Open the playlist in YouTube Music, then the menu next to its name and Share, Copy link. For a private one,
+          set a cookies browser in musico.config.json.
+        </p>
       </section>
 
       <div class="table-wrap" id="table-wrap">
@@ -80,7 +83,6 @@
               ><span class="d">0</span>
             </div>
           </div>
-          <a class="lever lever-quiet" id="zip" href="/api/zip" download hidden>Download zip</a>
           <button type="button" class="lever" id="rip">Rip new</button>
         </div>
       </footer>

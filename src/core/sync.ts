@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite';
-import { existsSync, mkdirSync, statSync } from 'node:fs';
+import { mkdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, type Config } from './config';
 import { fileName, sanitizeName, splitTitle, downloadTrack } from './download';
@@ -20,9 +20,10 @@ export type Hooks = {
 export type Summary = { title: string; total: number; skipped: number; added: number; failed: number };
 
 // The file on disk is the only source of truth for "already downloaded": a stale
-// database row must never cause a re-download, and a deleted file must be re-ripped.
-export function shouldSkip(fileExists: boolean): boolean {
-  return fileExists;
+// database row must never cause a re-download, and a missing or empty file must be
+// re-ripped.
+export function shouldSkip(fileBytes: number | null): boolean {
+  return fileBytes !== null && fileBytes > 0;
 }
 
 export async function runSync(config: Config, db: Database, hooks: Hooks = {}): Promise<Summary> {
@@ -61,7 +62,7 @@ export async function runSync(config: Config, db: Database, hooks: Hooks = {}): 
       const base = `${sanitizeName(entry.title)} [${entry.id}]`;
       const target = join(dir, fileName({ id: entry.id, title: entry.title }));
 
-      if (shouldSkip(existsSync(target))) {
+      if (shouldSkip(sizeOf(target))) {
         setTrack(db, playlist.id, entry.id, {
           status: 'done',
           progress: 1,

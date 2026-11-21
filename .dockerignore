@@ -1,9 +1,0 @@
-.git
-.freebuff
-.tmp-verify
-data
-downloads
-node_modules
-*.zip
-*.mp3
-.DS_Store

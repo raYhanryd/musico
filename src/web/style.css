@@ -474,22 +474,6 @@ tbody tr:last-child td {
   background: #000;
 }
 
-.lever-quiet {
-  color: var(--ink);
-  background: transparent;
-  border-color: var(--ink);
-  text-decoration: none;
-}
-
-.lever-quiet:hover {
-  color: var(--panel);
-  background: var(--ink);
-}
-
-.lever-quiet[hidden] {
-  display: none;
-}
-
 .lever:disabled {
   color: var(--muted);
   background: transparent;
