@@ -19,9 +19,16 @@ export function invalidPlaylistUrl(value: string): string | null {
 export type Entry = { id: string; title: string };
 export type Playlist = { id: string; title: string; entries: Entry[] };
 
-export async function listPlaylist(url: string, cookiesFromBrowser?: string | null): Promise<Playlist> {
-  const args = ['-J', '--flat-playlist', '--no-warnings', url];
-  if (cookiesFromBrowser) args.unshift('--cookies-from-browser', cookiesFromBrowser);
+export async function listPlaylist(
+  url: string,
+  cookiesFromBrowser?: string | null,
+  limit?: number,
+): Promise<Playlist> {
+  const args = ['-J', '--flat-playlist', '--no-warnings'];
+  if (cookiesFromBrowser) args.push('--cookies-from-browser', cookiesFromBrowser);
+  // Ask yt-dlp to stop reading: a 10k-entry playlist should not become a 10k-entry JSON.
+  if (limit && limit > 0) args.push('--playlist-end', String(limit));
+  args.push(url);
 
   let proc: ReturnType<typeof Bun.spawn>;
   try {

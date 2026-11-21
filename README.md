@@ -14,7 +14,7 @@ Two modes share the same tested core (`src/core/`):
 ```bash
 bun run ui     # dashboard, paste the playlist link, press Rip new
 bun run sync   # same job headless
-bun test       # 20 unit tests, no network
+bun test       # unit tests, no network
 ```
 
 A playlist is public or unlisted by default. For a private one, set
@@ -27,44 +27,96 @@ A playlist is public or unlisted by default. For a private one, set
 - a browser gets an `HttpOnly` session cookie, so a reload keeps its list
 - one job per session, newest replaces the old one
 - `GET /api/zip` streams every finished MP3 as one zip
-- at most 50 tracks per playlist, 3 rips per IP per hour, 2 rips at once
-- job directories are deleted 45 minutes after they start, and on boot
+- `GET /healthz` is there for the host's health check
+- job directories are deleted when the TTL passes, and on boot
 
 There is no database, so a container restart drops in-flight sessions. That is
-deliberate: 45 minutes is the whole retention story.
+deliberate: the TTL is the whole retention story.
 
-### Deploy
+### Limits
 
-The image needs ffmpeg, yt-dlp, a JS runtime and a writable disk. Vercel and
-Cloudflare Workers cannot host this. Use a container host:
+Everything is an environment variable, so the same image can run on a 512 MB
+free instance or a 1 GB VM.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `MAX_TRACKS` | 50 | tracks read from one playlist |
+| `MAX_DISK_MB` | 800 | temp-dir budget for all sessions together |
+| `MAX_CONCURRENT` | 2 | rips running at once |
+| `MAX_JOBS` | 20 | live sessions; the oldest finished one is evicted first |
+| `RIPS_PER_HOUR` | 3 | per IP |
+| `TTL_MINUTES` | 45 | session lifetime |
+| `PORT` | 8787 | listen port |
+
+The disk cap is checked before every track, not just at the end: a public burst
+stops with an error instead of filling the container. Audio may use 40% of
+`MAX_DISK_MB`; the other 60% is headroom for the zip, which is roughly as large
+as the audio it holds. One track can overshoot its budget because its size is
+not known until it has downloaded, so the real ceiling is
+`MAX_DISK_MB` plus at most one track and its zip entry. A second, different
+playlist in the same session does not get its old files back: they stay on disk
+until the TTL and count against the cap. A 256 MB filesystem reserve is always
+left untouched.
+
+## Deploy
+
+The image needs ffmpeg, yt-dlp, Deno and a writable disk. Vercel and Cloudflare
+Workers cannot host it: no Python, no child processes, no writable filesystem.
+
+### Render, free and no credit card
+
+Render's free web service runs a Dockerfile from a Git repo and gives a public
+`https://<name>.onrender.com` URL. Push this repo to GitHub, then in Render
+choose **New → Blueprint** and pick the repo; `render.yaml` declares the
+service.
+
+What free costs you:
+
+- 0.1 CPU and 512 MB RAM, so transcoding is slow and `render.yaml` allows one
+  rip at a time
+- it sleeps after 15 minutes without inbound traffic; the dashboard polls while
+  it is open, so keep the tab open during a rip
+- roughly 5 GB/month of egress on the free workspace, which is a few dozen zips
+- YouTube bot-checks datacenter IPs, so some rips will fail with a sign-in
+  prompt. That is between you and YouTube, not something the code can fix
+
+### Fly.io, paid
+
+`fly.toml` is set up for a 1 GB machine:
 
 ```bash
-# Fly.io — gives you https://musico.fly.dev
 fly launch --no-deploy --copy-config --dockerfile Dockerfile
 fly deploy
 ```
 
-Render and Railway work the same way: point them at this repo and they will
-build the Dockerfile. Set `PORT` only if the host requires it.
+Fly has no free tier any more and requires a card. Change `app` in `fly.toml`
+if the name `musico` is taken, since app names are global.
 
-If Fly rejects the name `musico` (app names are global), change `app` in
-`fly.toml` — the URL follows it.
+### What does not work
 
-A short custom domain needs to be bought and pointed at the host; `*.fly.dev`
-and `*.onrender.com` are free.
+- **Hugging Face Docker Spaces**: Docker Spaces need a paid PRO plan (checked
+  November 2026), and free accounts only get Gradio/ZeroGPU Spaces
+- **Railway free**: $1/month of credit, 1 GB ephemeral disk, and its fair-use
+  page names music bots and DMCA content as disallowed
+- **GitHub Codespaces**: 120 free core-hours, but its terms forbid hosting a
+  production-facing app, and the forwarded port stops with the codespace
+- **Oracle Cloud Always Free**: a credit card is required for identity checks
+- **Koyeb**: free instance exists, card required
+
+There is no free, card-free host that reliably downloads from YouTube: free
+tiers are all datacenter IPs, which YouTube treats as suspicious. Render free
+is the closest thing to what you asked for, and it is a demo, not a service.
 
 ### Before you make it public
 
-YouTube rate-limits and bot-checks datacenter IPs, so expect some rips to fail
-with a sign-in prompt. Downloading audio and serving it to the public is
-against YouTube's terms and is copyright infringement in most places; hosting
-this openly is a good way to lose the host account. Keep it small, keep the
-rate limits, and keep retention short.
+Downloading audio and serving it to the public is against YouTube's terms and
+is copyright infringement in most places. Free hosts suspend accounts for it.
+Keep it small, keep the rate limits, and keep retention short.
 
 ## Layout
 
 ```
-src/core/     yt-dlp calls, naming, parsing, local SQLite state
+src/core/     yt-dlp calls, naming, parsing, disk budget, local SQLite state
 src/cli.ts    sync / ui commands
 src/server.ts local loopback dashboard
 src/hosted.ts multi-user hosted dashboard

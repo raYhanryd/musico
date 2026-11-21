@@ -2,19 +2,33 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { audioBudget, dirBytes, freeBytes } from './core/budget';
 import { ROOT } from './core/config';
 import { downloadTrack, fileName, sanitizeName, splitTitle } from './core/download';
 import { invalidPlaylistUrl, listPlaylist } from './core/ytmusic';
 
 // Hosted, multi-user mode: no config file, no database, one job per browser session,
 // everything lives in a temp dir that is deleted after TTL_MS.
-const PORT = Number(process.env.PORT ?? 8787);
+// Every limit is env-tunable so the same image fits a free 512 MB host or a paid VM.
+
+function envInt(name: string, fallback: number, min: number, max: number): number {
+  const parsed = Number(process.env[name]);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(parsed)));
+}
+
+const PORT = envInt('PORT', 8787, 1, 65535);
+const MAX_TRACKS = envInt('MAX_TRACKS', 50, 1, 200);
+const MAX_JOBS = envInt('MAX_JOBS', 20, 1, 200);
+const MAX_CONCURRENT = envInt('MAX_CONCURRENT', 2, 1, 8);
+const RIPS_PER_HOUR = envInt('RIPS_PER_HOUR', 3, 1, 100);
+const TTL_MS = envInt('TTL_MINUTES', 45, 5, 24 * 60) * 60_000;
+const DISK_CAP = envInt('MAX_DISK_MB', 800, 50, 20_000) * 1024 * 1024;
+const AUDIO_CAP = audioBudget(DISK_CAP);
+const FREE_RESERVE = 256 * 1024 * 1024;
+const ZIP_RESERVE = 64 * 1024 * 1024;
 const JOBS_DIR = join(tmpdir(), 'musico-jobs');
-const TTL_MS = 45 * 60 * 1000;
-const MAX_TRACKS = Number(process.env.MAX_TRACKS ?? 50);
-const MAX_JOBS = 20;
-const MAX_CONCURRENT = 2;
-const RIPS_PER_HOUR = 3;
+const OUT_OF_ROOM = 'Musico is out of disk space. This session is cleared automatically; try a smaller playlist in a few minutes.';
 
 type Status = 'queued' | 'downloading' | 'transcoding' | 'done' | 'failed';
 
@@ -45,6 +59,7 @@ type Job = {
   finishedAt: number | null;
   zipPath: string | null;
   zipBytes: number;
+  zipFiles: number;
 };
 
 const sessions = new Map<string, Job>();
@@ -63,7 +78,9 @@ const json = (data: unknown, status = 200, cookie?: string) =>
   });
 
 const asset = (name: string, type: string) =>
-  new Response(Bun.file(join(ROOT, 'src/web', name)), { headers: { 'content-type': type } });
+  new Response(Bun.file(join(ROOT, 'src/web', name)), {
+    headers: { 'content-type': type, 'x-content-type-options': 'nosniff' },
+  });
 
 function readCookie(request: Request, name: string): string | null {
   const header = request.headers.get('cookie');
@@ -91,6 +108,31 @@ function clientIp(request: Request, server: { requestIP: (r: Request) => { addre
   return server.requestIP(request)?.address ?? 'unknown';
 }
 
+// Read with a hard cap instead of trusting content-length: a chunked body is unbounded.
+async function readBody(request: Request, limit: number): Promise<string | null> {
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > limit) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  return new TextDecoder().decode(Buffer.concat(chunks));
+}
+
+const diskUsed = () => dirBytes(JOBS_DIR);
+
+function outOfRoom(): boolean {
+  return diskUsed() >= AUDIO_CAP || freeBytes(JOBS_DIR) < FREE_RESERVE;
+}
+
 function snapshot(job: Job | null, playlist: string) {
   const tracks = job?.tracks ?? [];
   const onDisk = tracks.filter((track) => track.status === 'done').length;
@@ -113,7 +155,7 @@ function snapshot(job: Job | null, playlist: string) {
 
 async function runJob(job: Job): Promise<void> {
   try {
-    const playlist = await listPlaylist(job.playlist);
+    const playlist = await listPlaylist(job.playlist, null, MAX_TRACKS);
     job.title = playlist.title;
     const entries = playlist.entries.slice(0, MAX_TRACKS);
     const dir = join(job.dir, sanitizeName(playlist.title));
@@ -132,6 +174,12 @@ async function runJob(job: Job): Promise<void> {
     }));
 
     for (const track of job.tracks) {
+      // Checked per track: one upload can add at most one track past the limit.
+      if (outOfRoom()) {
+        job.error = OUT_OF_ROOM;
+        break;
+      }
+
       const target = join(dir, fileName({ id: track.id, title: track.title }));
       if (existsSync(target)) {
         track.status = 'done';
@@ -169,7 +217,10 @@ async function runJob(job: Job): Promise<void> {
     }
 
     // Build it now: the download button is only shown once this exists.
-    if (job.files.length > 0) buildZip(job);
+    if (job.files.length > 0) {
+      if (freeBytes(job.dir) < ZIP_RESERVE) job.error = 'Not enough disk space left to package the zip.';
+      else buildZip(job);
+    }
   } catch (error) {
     job.error = error instanceof Error ? error.message : String(error);
   } finally {
@@ -189,7 +240,9 @@ function rateLimited(ip: string): boolean {
 }
 
 function buildZip(job: Job): string {
-  if (job.zipPath) return job.zipPath;
+  // A zip requested mid-rip holds fewer files than the job ends with; rebuild it
+  // instead of serving that stale archive for the rest of the session.
+  if (job.zipPath && job.zipFiles === job.files.length) return job.zipPath;
   if (job.files.length === 0) throw new Error('Nothing has downloaded yet.');
   const path = join(job.dir, `${sanitizeName(job.title) || 'musico'}.zip`);
   // Rebuild from scratch so a track dropped from the playlist cannot survive in the zip.
@@ -198,7 +251,35 @@ function buildZip(job: Job): string {
   if (result.exitCode !== 0) throw new Error('Could not build the zip file.');
   job.zipPath = path;
   job.zipBytes = statSync(path).size;
+  job.zipFiles = job.files.length;
   return path;
+}
+
+// ASCII fallback plus RFC 5987 so non-Latin playlist titles download correctly.
+function zipHeaders(title: string): Record<string, string> {
+  const base = `${sanitizeName(title) || 'musico'}.zip`;
+  const asciiStem = base
+    .slice(0, -4)
+    .replace(/[^\x20-\x7e]/g, '')
+    .replace(/["\\]/g, '')
+    .trim() || 'musico';
+  const encoded = encodeURIComponent(base).replace(/['()!*]/g, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+  return {
+    'content-type': 'application/zip',
+    'content-disposition': `attachment; filename="${asciiStem}.zip"; filename*=UTF-8''${encoded}`,
+    'cache-control': 'no-store',
+  };
+}
+
+// The oldest session that is no longer downloading, so a burst of one-time
+// visitors cannot lock the server out for the whole TTL.
+function finishedSession(): [string, Job] | null {
+  let oldest: [string, Job] | null = null;
+  for (const entry of sessions) {
+    if (entry[1].running) continue;
+    if (!oldest || entry[1].startedAt < oldest[1].startedAt) oldest = entry;
+  }
+  return oldest;
 }
 
 // One job per session: a new rip replaces the previous directory deliberately.
@@ -206,8 +287,18 @@ function startJob(session: string, playlist: string, ip: string): Job {
   const current = sessions.get(session);
   if (current?.running) throw new Error('A rip is already running for this session.');
   if (activeJobs >= MAX_CONCURRENT) throw new Error('Musico is busy right now. Try again in a minute.');
-  if (sessions.size >= MAX_JOBS) throw new Error('Musico is at capacity right now. Try again shortly.');
+  if (sessions.size >= MAX_JOBS && !finishedSession()) throw new Error('Musico is at capacity right now. Try again shortly.');
+  if (outOfRoom()) throw new Error('Musico is out of disk space right now. Try again in a few minutes.');
   if (rateLimited(ip)) throw new Error(`Limit reached: ${RIPS_PER_HOUR} rips per hour. Try again later.`);
+
+  if (sessions.size >= MAX_JOBS) {
+    const stale = finishedSession();
+    if (stale) {
+      rmSync(stale[1].dir, { recursive: true, force: true });
+      sessions.delete(stale[0]);
+      pendingPlaylist.delete(stale[0]);
+    }
+  }
 
   // Keep the directory: a second rip in this session skips what is already on disk.
   const dir = join(JOBS_DIR, session);
@@ -227,6 +318,7 @@ function startJob(session: string, playlist: string, ip: string): Job {
     finishedAt: null,
     zipPath: null,
     zipBytes: 0,
+    zipFiles: 0,
   };
 
   sessions.set(session, job);
@@ -258,6 +350,13 @@ Bun.serve({
   hostname: '0.0.0.0',
   fetch: async (request, server) => {
     const { pathname } = new URL(request.url);
+
+    if (pathname === '/healthz') {
+      return new Response('ok', {
+        headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' },
+      });
+    }
+
     const session = sessionOf(request);
     const cookie = session.cookie;
     const job = sessions.get(session.id) ?? null;
@@ -266,7 +365,14 @@ Bun.serve({
     if (pathname === '/api/state' && request.method === 'GET') return json(snapshot(job, playlist), 200, cookie);
 
     if (pathname === '/api/config' && request.method === 'POST') {
-      const body = (await request.json().catch(() => null)) as { playlist?: unknown } | null;
+      const raw = await readBody(request, 8 * 1024);
+      if (raw === null) return json({ error: 'That link is too long.' }, 413, cookie);
+      let body: { playlist?: unknown } | null = null;
+      try {
+        body = JSON.parse(raw) as { playlist?: unknown };
+      } catch {
+        // A malformed body is just an empty link.
+      }
       const value = typeof body?.playlist === 'string' ? body.playlist.trim() : '';
       const invalid = invalidPlaylistUrl(value);
       if (invalid) return json({ error: invalid }, 400, cookie);
@@ -295,13 +401,7 @@ Bun.serve({
       } catch (error) {
         return new Response(error instanceof Error ? error.message : 'Zip failed.', { status: 409 });
       }
-      return new Response(Bun.file(path), {
-        headers: {
-          'content-type': 'application/zip',
-          'content-disposition': `attachment; filename="${(sanitizeName(current.title) || 'musico').replace(/"/g, '')}.zip"`,
-          'cache-control': 'no-store',
-        },
-      });
+      return new Response(Bun.file(path), { headers: zipHeaders(current.title) });
     }
 
     if (pathname === '/') return asset('index.html', 'text/html; charset=utf-8');
@@ -312,4 +412,4 @@ Bun.serve({
   },
 });
 
-console.log(`Musico (hosted mode) is at http://localhost:${PORT}`);
+console.log(`Musico (hosted mode) is at http://localhost:${PORT} (disk cap ${DISK_CAP / 1024 / 1024} MB)`);
