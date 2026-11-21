@@ -1,0 +1,5 @@
+node_modules/
+downloads/
+data/
+.DS_Store
+.freebuff/

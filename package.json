@@ -1,0 +1,12 @@
+{
+  "name": "musico",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "bun src/cli.ts sync",
+    "ui": "bun src/cli.ts ui",
+    "hosted": "bun src/hosted.ts",
+    "test": "bun test"
+  }
+}

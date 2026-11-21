@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Musico</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main class="deck">
+      <header class="plate">
+        <div class="plate-head">
+          <h1 id="title">Musico</h1>
+          <p class="plate-meta" id="meta"></p>
+        </div>
+        <div class="strip" id="strip" role="img" aria-label="Ripping progress for this playlist"></div>
+      </header>
+
+      <p class="banner" id="banner" role="alert" hidden></p>
+
+      <section class="setup" id="setup" hidden>
+        <h2>Paste your YouTube Music playlist link</h2>
+        <form id="setup-form" novalidate>
+          <label class="sr" for="playlist-url">Playlist link</label>
+          <input
+            id="playlist-url"
+            name="playlist"
+            type="url"
+            inputmode="url"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="https://music.youtube.com/playlist?list=…"
+          />
+          <button type="submit" class="lever">Save playlist</button>
+        </form>
+        <p class="hint">
+          Open the playlist in YouTube Music, then the menu next to its name and Share, Copy link. Musico reads public and
+          unlisted playlists; for a private one, set a cookies browser in musico.config.json.
+        </p>
+      </section>
+
+      <div class="table-wrap" id="table-wrap">
+        <table>
+          <colgroup>
+            <col class="w-at" />
+            <col />
+            <col class="w-len" />
+            <col class="w-state" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col" class="c-at">No.</th>
+              <th scope="col">Track</th>
+              <th scope="col" class="c-len">Length</th>
+              <th scope="col" class="c-state">State</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <p class="empty" id="empty" hidden></p>
+      </div>
+
+      <footer class="transport">
+        <div class="transport-inner">
+          <div class="readouts">
+            <p class="readout"><span class="num" id="n-done">0</span><span class="lbl">on disk</span></p>
+            <p class="readout"><span class="num" id="n-todo">0</span><span class="lbl">to rip</span></p>
+            <p class="readout" id="fail-readout" hidden>
+              <span class="num" id="n-fail">0</span><span class="lbl">failed</span>
+            </p>
+          </div>
+          <div class="elapsed">
+            <span class="elapsed-lbl" id="elapsed-lbl">elapsed</span>
+            <div class="odo" id="odo" role="timer" aria-live="off">
+              <span class="d">0</span><span class="d">0</span><span class="sep">:</span><span class="d">0</span
+              ><span class="d">0</span>
+            </div>
+          </div>
+          <a class="lever lever-quiet" id="zip" href="/api/zip" download hidden>Download zip</a>
+          <button type="button" class="lever" id="rip">Rip new</button>
+        </div>
+      </footer>
+
+      <p class="sr" id="live" role="status" aria-live="polite" aria-atomic="true"></p>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
