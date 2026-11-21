@@ -47,6 +47,9 @@ fly deploy
 Render and Railway work the same way: point them at this repo and they will
 build the Dockerfile. Set `PORT` only if the host requires it.
 
+If Fly rejects the name `musico` (app names are global), change `app` in
+`fly.toml` — the URL follows it.
+
 A short custom domain needs to be bought and pointed at the host; `*.fly.dev`
 and `*.onrender.com` are free.
 
