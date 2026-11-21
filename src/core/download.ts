@@ -67,8 +67,22 @@ export function parseProgressLine(line: string): ProgressEvent | null {
   return null;
 }
 
-export function friendlyError(stderr: string): string {
+export function friendlyError(stderr: string, hosted = false): string {
   const text = stderr.toLowerCase();
+  // A visitor on a hosted server cannot edit a config file or upgrade yt-dlp;
+  // the only honest explanation is the datacenter IP YouTube is refusing.
+  if (
+    hosted &&
+    (text.includes('player response') ||
+      text.includes('sign in to confirm') ||
+      text.includes('not a bot') ||
+      text.includes('ip is likely being blocked'))
+  ) {
+    return "YouTube blocked this download from the server's IP. Hosted Musico runs on a datacenter connection, which YouTube treats as a bot; run Musico on your own machine for reliable rips.";
+  }
+  if (hosted && (text.includes('private') || text.includes('members-only') || text.includes('join this channel'))) {
+    return 'This playlist is not public. Hosted Musico reads public and unlisted playlists only.';
+  }
   if (text.includes('sign in to confirm') || text.includes('not a bot')) {
     return 'YouTube asked for a sign-in. Run "brew upgrade yt-dlp"; if that does not help, set "cookiesFromBrowser": "firefox" in musico.config.json.';
   }
@@ -85,6 +99,20 @@ export function friendlyError(stderr: string): string {
     .filter(Boolean)
     .pop();
   return last ? last.replace(/^ERROR:\s*/i, '') : 'yt-dlp failed.';
+}
+
+// yt-dlp has no wall-clock limit, so a stuck socket or retry loop needs an outside kill.
+export function killAfter(proc: { kill: () => void }, ms: number): { cancel: () => void; expired: () => boolean } {
+  let expired = false;
+  const timer = setTimeout(() => {
+    expired = true;
+    try {
+      proc.kill();
+    } catch {
+      // Already gone.
+    }
+  }, ms);
+  return { cancel: () => clearTimeout(timer), expired: () => expired };
 }
 
 // The child currently downloading, so ctrl-c can take yt-dlp down with the server.
@@ -105,6 +133,8 @@ type DownloadOptions = {
   base: string;
   cookiesFromBrowser?: string | null;
   onEvent?: (event: ProgressEvent) => void;
+  timeoutMs?: number;
+  hosted?: boolean;
 };
 
 export async function downloadTrack(options: DownloadOptions): Promise<{ file: string; duration: number | null }> {
@@ -149,6 +179,7 @@ export async function downloadTrack(options: DownloadOptions): Promise<{ file: s
     throw new Error('yt-dlp is not installed. Run "brew install yt-dlp ffmpeg".');
   }
   activeChild = proc;
+  const guard = options.timeoutMs ? killAfter(proc, options.timeoutMs) : null;
 
   // Drain stderr immediately: an unread pipe fills and blocks yt-dlp mid-download.
   const stderrText = new Response(proc.stderr as ReadableStream<Uint8Array>).text();
@@ -178,7 +209,13 @@ export async function downloadTrack(options: DownloadOptions): Promise<{ file: s
   }
 
   const code = await proc.exited;
-  if (code !== 0) throw new Error(friendlyError(await stderrText));
+  guard?.cancel();
+  if (activeChild === proc) activeChild = null;
+  // A clean exit that lands exactly on the deadline is still a success.
+  if (code !== 0) {
+    if (guard?.expired()) throw new Error('This track stalled, so Musico stopped it. Try again in a moment.');
+    throw new Error(friendlyError(await stderrText, options.hosted));
+  }
 
   const finalFile = file || `${options.dir}/${options.base}.mp3`;
   if (!exists(finalFile)) throw new Error('yt-dlp finished but no MP3 was written.');

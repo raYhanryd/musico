@@ -45,6 +45,7 @@ free instance or a 1 GB VM.
 | `MAX_CONCURRENT` | 2 | rips running at once |
 | `MAX_JOBS` | 20 | live sessions; the oldest finished one is evicted first |
 | `RIPS_PER_HOUR` | 3 | per IP |
+| `TRACK_TIMEOUT_SECONDS` | 600 | kill one stalled track so the queue moves on |
 | `TTL_MINUTES` | 45 | session lifetime |
 | `PORT` | 8787 | listen port |
 

@@ -19,10 +19,18 @@ export function invalidPlaylistUrl(value: string): string | null {
 export type Entry = { id: string; title: string };
 export type Playlist = { id: string; title: string; entries: Entry[] };
 
+// Cookies are a local-mode escape hatch; a hosted visitor has no config file to edit.
+export function emptyPlaylistError(hosted: boolean): string {
+  return hosted
+    ? 'No playable tracks in that playlist. Hosted Musico reads public and unlisted playlists only.'
+    : 'No playable tracks in that playlist. If it is private, set "cookiesFromBrowser": "firefox" in musico.config.json, then run it again.';
+}
+
 export async function listPlaylist(
   url: string,
   cookiesFromBrowser?: string | null,
   limit?: number,
+  hosted = false,
 ): Promise<Playlist> {
   const args = ['-J', '--flat-playlist', '--no-warnings'];
   if (cookiesFromBrowser) args.push('--cookies-from-browser', cookiesFromBrowser);
@@ -40,7 +48,7 @@ export async function listPlaylist(
   const stderrText = new Response(proc.stderr as ReadableStream<Uint8Array>).text();
   const stdoutText = await new Response(proc.stdout as ReadableStream<Uint8Array>).text();
   const code = await proc.exited;
-  if (code !== 0) throw new Error(friendlyError(await stderrText));
+  if (code !== 0) throw new Error(friendlyError(await stderrText, hosted));
 
   const jsonLine = stdoutText
     .split('\n')
@@ -65,11 +73,7 @@ export async function listPlaylist(
       title: typeof entry.title === 'string' && entry.title.trim() ? entry.title.trim() : '(untitled)',
     }));
 
-  if (entries.length === 0) {
-    throw new Error(
-      'No playable tracks in that playlist. If it is private, set "cookiesFromBrowser": "firefox" in musico.config.json, then run it again.',
-    );
-  }
+  if (entries.length === 0) throw new Error(emptyPlaylistError(hosted));
 
   return {
     id: info.id ?? 'playlist',

@@ -22,6 +22,7 @@ const MAX_TRACKS = envInt('MAX_TRACKS', 50, 1, 200);
 const MAX_JOBS = envInt('MAX_JOBS', 20, 1, 200);
 const MAX_CONCURRENT = envInt('MAX_CONCURRENT', 2, 1, 8);
 const RIPS_PER_HOUR = envInt('RIPS_PER_HOUR', 3, 1, 100);
+const TRACK_TIMEOUT_SECONDS = envInt('TRACK_TIMEOUT_SECONDS', 600, 10, 3600);
 const TTL_MS = envInt('TTL_MINUTES', 45, 5, 24 * 60) * 60_000;
 const DISK_CAP = envInt('MAX_DISK_MB', 800, 50, 20_000) * 1024 * 1024;
 const AUDIO_CAP = audioBudget(DISK_CAP);
@@ -155,7 +156,7 @@ function snapshot(job: Job | null, playlist: string) {
 
 async function runJob(job: Job): Promise<void> {
   try {
-    const playlist = await listPlaylist(job.playlist, null, MAX_TRACKS);
+    const playlist = await listPlaylist(job.playlist, null, MAX_TRACKS, true);
     job.title = playlist.title;
     const entries = playlist.entries.slice(0, MAX_TRACKS);
     const dir = join(job.dir, sanitizeName(playlist.title));
@@ -195,6 +196,8 @@ async function runJob(job: Job): Promise<void> {
           id: track.id,
           dir,
           base: `${sanitizeName(track.title)} [${track.id}]`,
+          hosted: true,
+          timeoutMs: TRACK_TIMEOUT_SECONDS * 1000,
           onEvent: (event) => {
             if (event.kind === 'download' && event.total && event.total > 0) {
               track.progress = Math.min(1, event.downloaded / event.total);
