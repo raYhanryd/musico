@@ -1,5 +1,5 @@
 #!/bin/bash
-# Double-click this file in Finder to start Musico. Ctrl-c stops the server and any rip.
+# Double-click this file in Finder to start Musico. Ctrl-c stops the server and any download.
 
 cd "$(dirname "$0")" || exit 1
 export PATH="$HOME/.bun/bin:/opt/homebrew/bin:$PATH"

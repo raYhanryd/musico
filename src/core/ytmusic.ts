@@ -56,7 +56,7 @@ export async function listPlaylist(
     entries?: { id?: string; title?: string }[];
   };
 
-  // A single video link is still one track worth ripping.
+  // A single video link is still one track worth downloading.
   const raw = Array.isArray(info.entries) ? info.entries : info._type === 'video' ? [info] : [];
   const entries: Entry[] = raw
     .filter((entry) => typeof entry?.id === 'string' && entry.id.length > 0)

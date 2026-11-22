@@ -18,9 +18,12 @@
       <header class="plate">
         <div class="plate-head">
           <h1 id="title">Musico</h1>
-          <p class="plate-meta" id="meta"></p>
+          <div class="plate-side">
+            <p class="plate-meta" id="meta"></p>
+            <button type="button" class="quiet" id="change" hidden>Change playlist</button>
+          </div>
         </div>
-        <div class="strip" id="strip" role="img" aria-label="Ripping progress for this playlist"></div>
+        <div class="strip" id="strip" role="img" aria-label="Download progress for this playlist"></div>
       </header>
 
       <p class="banner" id="banner" role="alert" hidden></p>
@@ -38,7 +41,8 @@
             spellcheck="false"
             placeholder="https://music.youtube.com/playlist?list=…"
           />
-          <button type="submit" class="lever">Save and rip</button>
+          <button type="submit" class="lever">Save and download</button>
+          <button type="button" class="quiet" id="cancel-change" hidden>Cancel</button>
         </form>
         <p class="hint">
           Open the playlist in YouTube Music, then the menu next to its name and Share, Copy link. For a private one,
@@ -71,7 +75,7 @@
         <div class="transport-inner">
           <div class="readouts">
             <p class="readout"><span class="num" id="n-done">0</span><span class="lbl">on disk</span></p>
-            <p class="readout"><span class="num" id="n-todo">0</span><span class="lbl">to rip</span></p>
+            <p class="readout"><span class="num" id="n-todo">0</span><span class="lbl">to download</span></p>
             <p class="readout" id="fail-readout" hidden>
               <span class="num" id="n-fail">0</span><span class="lbl">failed</span>
             </p>
@@ -83,7 +87,7 @@
               ><span class="d">0</span>
             </div>
           </div>
-          <button type="button" class="lever" id="rip">Rip new</button>
+          <button type="button" class="lever" id="download">Download new</button>
         </div>
       </footer>
 

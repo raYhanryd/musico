@@ -3,6 +3,7 @@ const $ = (id) => document.getElementById(id);
 const rows = new Map();
 const announced = new Map();
 let stripSignature = '';
+let editing = false;
 let timer = null;
 let metaA = null;
 let metaB = null;
@@ -91,8 +92,12 @@ function row(track) {
 function render(state) {
   const configured = Boolean(state.config?.playlist);
   // A bad saved link must not trap the user: let them paste another one.
-  $('setup').hidden = configured && !state.error;
+  $('setup').hidden = configured && !state.error && !editing;
   $('table-wrap').hidden = !configured;
+  $('change').hidden = !configured || editing || Boolean(state.error);
+  $('change').disabled = Boolean(state.run?.running);
+  // When the saved link is broken the form is the only way out, so it stays open.
+  $('cancel-change').hidden = !editing || Boolean(state.error);
   setText($('title'), state.playlist?.title || 'Musico');
   renderMeta(state, configured);
   $('banner').hidden = !state.error;
@@ -100,7 +105,7 @@ function render(state) {
 
   if (!configured) {
     $('strip').hidden = true;
-    $('rip').disabled = true;
+    $('download').disabled = true;
     return;
   }
   $('strip').hidden = false;
@@ -233,9 +238,12 @@ function paintTransport(state, tracks) {
   const cells = $('odo').querySelectorAll('.d');
   for (let index = 0; index < cells.length; index += 1) setText(cells[index], digits[index]);
 
-  const button = $('rip');
+  const button = $('download');
   button.disabled = running;
-  setText(button, running ? 'Ripping…' : state.totals.todo > 0 ? `Rip ${state.totals.todo} new` : 'Rip new');
+  setText(
+    button,
+    running ? 'Downloading…' : state.totals.todo > 0 ? `Download ${state.totals.todo} new` : 'Download new',
+  );
 }
 
 function paintEmpty(state, tracks) {
@@ -246,7 +254,7 @@ function paintEmpty(state, tracks) {
     empty,
     state.run?.running
       ? 'Reading the playlist…'
-      : 'Nothing listed yet. Rip new reads the playlist and downloads what is not here.',
+      : 'Nothing listed yet. Download new reads the playlist and fetches what is not here.',
   );
 }
 
@@ -262,7 +270,7 @@ async function tick() {
     $('banner').hidden = false;
     setText($('banner'), 'Lost the connection to Musico. Is the server still running?');
   }
-  // A rip downloads faster than a slow poll can show, so sample tightly while it runs.
+  // Downloads finish faster than a slow poll can show, so sample tightly while one runs.
   timer = setTimeout(tick, running ? 300 : 1500);
 }
 
@@ -281,22 +289,37 @@ $('setup-form').addEventListener('submit', async (event) => {
     return;
   }
   $('playlist-url').value = '';
+  editing = false;
   const started = await fetch('/api/sync', { method: 'POST' });
   if (!started.ok) {
     const error = await started.json().catch(() => ({}));
     $('banner').hidden = false;
-    setText($('banner'), error.error || 'Could not start the rip.');
+    setText($('banner'), error.error || 'Could not start the download.');
   }
   tick();
 });
 
-$('rip').addEventListener('click', async () => {
-  $('rip').disabled = true;
+$('change').addEventListener('click', () => {
+  editing = true;
+  $('setup').hidden = false;
+  $('change').hidden = true;
+  $('cancel-change').hidden = false;
+  $('playlist-url').focus();
+});
+
+$('cancel-change').addEventListener('click', () => {
+  editing = false;
+  $('playlist-url').value = '';
+  tick();
+});
+
+$('download').addEventListener('click', async () => {
+  $('download').disabled = true;
   const response = await fetch('/api/sync', { method: 'POST' });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
     $('banner').hidden = false;
-    setText($('banner'), body.error || 'Could not start the rip.');
+    setText($('banner'), body.error || 'Could not start the download.');
   }
   tick();
 });

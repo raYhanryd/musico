@@ -47,7 +47,7 @@ if (command === 'ui') {
       },
     });
 
-    const parts = [`✓ ${summary.skipped} already here`, `↓ ${summary.added} ripped`];
+    const parts = [`✓ ${summary.skipped} already here`, `↓ ${summary.added} downloaded`];
     if (summary.failed > 0) parts.push(`! ${summary.failed} failed`);
     console.log(`\n${parts.join('   ')}`);
     console.log(`  saved in ${join(ROOT, config.outDir)}/`);
@@ -60,7 +60,7 @@ if (command === 'ui') {
   console.log(`
 Musico — pull a YouTube Music playlist down as MP3 files.
 
-  bun run sync     rip anything new into downloads/, skip what is already there
+  bun run sync     download anything new into downloads/, skip what is already there
   bun run ui       open the dashboard at http://127.0.0.1:7777
   bun test         run the unit tests
 `);

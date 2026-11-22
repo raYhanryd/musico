@@ -78,7 +78,7 @@ export function start(): void {
     process.exit(1);
   }
 
-  // Ctrl-c should take a running rip down too, not just the dashboard.
+  // Ctrl-c should take a running download down too, not just the dashboard.
   const shutdown = () => {
     killActiveChild();
     process.exit(0);

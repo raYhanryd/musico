@@ -21,7 +21,7 @@ export type Summary = { title: string; total: number; skipped: number; added: nu
 
 // The file on disk is the only source of truth for "already downloaded": a stale
 // database row must never cause a re-download, and a missing or empty file must be
-// re-ripped.
+// fetched again.
 export function shouldSkip(fileBytes: number | null): boolean {
   return fileBytes !== null && fileBytes > 0;
 }

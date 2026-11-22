@@ -1,6 +1,6 @@
 # Musico
 
-Rips a YouTube Music playlist to MP3s on your own Mac. Nothing is uploaded
+Downloads a YouTube Music playlist as MP3s on your own Mac. Nothing is uploaded
 anywhere; yt-dlp talks to YouTube directly from your machine.
 
 ## Use it
@@ -8,11 +8,13 @@ anywhere; yt-dlp talks to YouTube directly from your machine.
 1. Double-click **Start Musico.command**. The dashboard opens at
    <http://127.0.0.1:7777>.
 2. Paste a playlist link (YouTube Music → menu next to the playlist → Share →
-   Copy link) and press **Save and rip**.
+   Copy link) and press **Save and download**.
 3. Files land in `downloads/<playlist name>/`.
 
 Run it again any time: MP3s already on disk are skipped, new tracks are added.
-The last playlist is remembered in `musico.config.json`.
+To switch playlists, press **Change playlist** in the header, paste the new link
+and press **Save and download**. The last playlist is remembered in
+`musico.config.json`.
 
 **Private playlists, or “sign in to confirm you're not a bot”:** set
 `"cookiesFromBrowser": "firefox"` (or `chrome`, `safari`, `edge`) in
@@ -30,7 +32,7 @@ The launcher checks all three and tells you what is missing.
 
 ```bash
 bun run ui     # dashboard
-bun run sync   # rip the saved playlist without opening the browser
+bun run sync   # download the saved playlist without opening the browser
 bun test       # offline unit tests
 ```
 

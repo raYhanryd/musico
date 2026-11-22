@@ -78,6 +78,13 @@ body {
   overflow: hidden;
 }
 
+.plate-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+}
+
 .plate-meta {
   display: flex;
   gap: 18px;
@@ -87,6 +94,30 @@ body {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.quiet {
+  padding: 0 0 2px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.quiet:hover:not(:disabled) {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+.quiet:disabled {
+  color: var(--rule);
+  border-color: transparent;
+  cursor: default;
 }
 
 .strip {
@@ -120,7 +151,7 @@ body {
   opacity: 1;
 }
 
-/* One ambient motion in the whole page: the head sweeping through the track being ripped. */
+/* One ambient motion in the whole page: the head sweeping through the track being fetched. */
 .seg.run::after {
   content: '';
   position: absolute;
@@ -181,6 +212,10 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+#setup-form .quiet {
+  align-self: center;
 }
 
 #playlist-url {
@@ -490,6 +525,10 @@ tbody tr:last-child td {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+
+  .plate-side {
+    align-items: flex-start;
   }
 
   .plate-meta {
