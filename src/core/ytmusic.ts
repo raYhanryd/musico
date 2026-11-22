@@ -1,4 +1,4 @@
-import { friendlyError } from './download';
+import { friendlyError, trackChild, untrackChild } from './download';
 
 export function invalidPlaylistUrl(value: string): string | null {
   if (!value) return 'Paste a playlist link.';
@@ -32,14 +32,16 @@ export async function listPlaylist(
 
   let proc: ReturnType<typeof Bun.spawn>;
   try {
-    proc = Bun.spawn(['yt-dlp', ...args], { stdout: 'pipe', stderr: 'pipe' });
+    proc = Bun.spawn(['yt-dlp', ...args], { env: process.env, stdout: 'pipe', stderr: 'pipe' });
   } catch {
     throw new Error('yt-dlp is not installed. Run "brew install yt-dlp ffmpeg".');
   }
 
+  trackChild(proc);
   const stderrText = new Response(proc.stderr as ReadableStream<Uint8Array>).text();
   const stdoutText = await new Response(proc.stdout as ReadableStream<Uint8Array>).text();
   const code = await proc.exited;
+  untrackChild();
   if (code !== 0) throw new Error(friendlyError(await stderrText));
 
   const jsonLine = stdoutText

@@ -105,6 +105,7 @@ function render(state) {
 
   if (!configured) {
     $('strip').hidden = true;
+    $('stop').hidden = true;
     $('download').disabled = true;
     return;
   }
@@ -238,6 +239,7 @@ function paintTransport(state, tracks) {
   const cells = $('odo').querySelectorAll('.d');
   for (let index = 0; index < cells.length; index += 1) setText(cells[index], digits[index]);
 
+  $('stop').hidden = !running;
   const button = $('download');
   button.disabled = running;
   setText(
@@ -310,6 +312,16 @@ $('change').addEventListener('click', () => {
 $('cancel-change').addEventListener('click', () => {
   editing = false;
   $('playlist-url').value = '';
+  tick();
+});
+
+$('stop').addEventListener('click', async () => {
+  const response = await fetch('/api/stop', { method: 'POST' });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    $('banner').hidden = false;
+    setText($('banner'), body.error || 'Could not stop the download.');
+  }
   tick();
 });
 

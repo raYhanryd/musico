@@ -1,8 +1,8 @@
 import type { Database } from 'bun:sqlite';
-import { mkdirSync, statSync } from 'node:fs';
+import { mkdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, type Config } from './config';
-import { fileName, sanitizeName, splitTitle, downloadTrack } from './download';
+import { fileName, sanitizeName, splitTitle, downloadTrack, killActiveChild } from './download';
 import { activeRun, finishRun, pruneTracks, setMeta, setTrack, startRun, upsertTracks } from './db';
 import { listPlaylist } from './ytmusic';
 
@@ -26,6 +26,17 @@ export function shouldSkip(fileBytes: number | null): boolean {
   return fileBytes !== null && fileBytes > 0;
 }
 
+let stopRun: number | null = null;
+
+// Kill the running yt-dlp and let the loop stop at its next boundary.
+export function stopSync(db: Database): boolean {
+  const run = activeRun(db);
+  if (!run) return false;
+  stopRun = run.id;
+  killActiveChild();
+  return true;
+}
+
 export async function runSync(config: Config, db: Database, hooks: Hooks = {}): Promise<Summary> {
   if (!config.playlist) throw new Error('No playlist set yet. Paste a YouTube Music playlist link in the dashboard.');
 
@@ -35,6 +46,7 @@ export async function runSync(config: Config, db: Database, hooks: Hooks = {}): 
   // The run row is written before the first await so two triggers cannot race.
   const runId = startRun(db, config.playlist, process.pid);
   const counts = { added: 0, skipped: 0, failed: 0 };
+  const stopped = () => stopRun === runId;
   setMeta(db, 'lastError', '');
 
   try {
@@ -53,6 +65,7 @@ export async function runSync(config: Config, db: Database, hooks: Hooks = {}): 
     mkdirSync(dir, { recursive: true });
 
     for (const [index, entry] of playlist.entries.entries()) {
+      if (stopped()) break;
       const track: TrackInfo = {
         id: entry.id,
         position: index + 1,
@@ -104,6 +117,12 @@ export async function runSync(config: Config, db: Database, hooks: Hooks = {}): 
         counts.added += 1;
         hooks.onDone?.(track);
       } catch (error) {
+        if (stopped()) {
+          // A killed conversion leaves a truncated mp3 the next run would trust.
+          rmSync(target, { force: true });
+          setTrack(db, playlist.id, entry.id, { status: 'queued', progress: 0, error: null });
+          break;
+        }
         const message = error instanceof Error ? error.message : String(error);
         setTrack(db, playlist.id, entry.id, { status: 'failed', progress: 0, error: message });
         counts.failed += 1;
@@ -113,10 +132,13 @@ export async function runSync(config: Config, db: Database, hooks: Hooks = {}): 
 
     return { title: playlist.title, total: playlist.entries.length, ...counts };
   } catch (error) {
+    // A user stop is not a failure; the run just ends quietly.
+    if (stopped()) return { title: '', total: 0, ...counts };
     const message = error instanceof Error ? error.message : String(error);
     setMeta(db, 'lastError', message);
     throw error;
   } finally {
+    if (stopped()) stopRun = null;
     finishRun(db, runId);
   }
 }

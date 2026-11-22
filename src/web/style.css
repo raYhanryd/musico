@@ -505,8 +505,21 @@ tbody tr:last-child td {
   cursor: pointer;
 }
 
+.lever[hidden] {
+  display: none;
+}
+
 .lever:hover:not(:disabled) {
   background: #000;
+}
+
+.lever.stop {
+  color: var(--ink);
+  background: transparent;
+}
+
+.lever.stop:hover:not(:disabled) {
+  color: var(--panel);
 }
 
 .lever:disabled {

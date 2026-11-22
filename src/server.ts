@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { ROOT, loadConfig, saveConfig } from './core/config';
 import { activeRun, getMeta, latestRun, listTracks, openDb, setMeta } from './core/db';
 import { fileName, killActiveChild, sanitizeName, splitTitle } from './core/download';
-import { runSync } from './core/sync';
+import { runSync, stopSync } from './core/sync';
 import { invalidPlaylistUrl } from './core/ytmusic';
 
 const PORT = Number(process.env.PORT) || 7777;
@@ -60,6 +60,10 @@ export function start(): void {
             setMeta(db, 'lastError', error instanceof Error ? error.message : String(error));
           });
           return json({ started: true }, 202);
+        }
+
+        if (pathname === '/api/stop' && request.method === 'POST') {
+          return json({ stopping: stopSync(db) });
         }
 
         if (pathname === '/') return asset('index.html', 'text/html; charset=utf-8');

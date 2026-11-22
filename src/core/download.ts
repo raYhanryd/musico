@@ -114,6 +114,15 @@ export function killActiveChild(): void {
   activeChild = null;
 }
 
+// The playlist listing shares this slot so a stop can end a stuck listing too.
+export function trackChild(child: ReturnType<typeof Bun.spawn>): void {
+  activeChild = child;
+}
+
+export function untrackChild(): void {
+  activeChild = null;
+}
+
 type DownloadOptions = {
   id: string;
   dir: string;
@@ -161,7 +170,7 @@ export async function downloadTrack(options: DownloadOptions): Promise<{ file: s
 
   let proc: ReturnType<typeof Bun.spawn>;
   try {
-    proc = Bun.spawn(['yt-dlp', ...args], { stdout: 'pipe', stderr: 'pipe' });
+    proc = Bun.spawn(['yt-dlp', ...args], { env: process.env, stdout: 'pipe', stderr: 'pipe' });
   } catch {
     throw new Error('yt-dlp is not installed. Run "brew install yt-dlp ffmpeg".');
   }
