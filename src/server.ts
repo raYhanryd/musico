@@ -34,6 +34,12 @@ export function sameOrigin(request: Request): boolean {
   return !origin || origin === new URL(request.url).origin;
 }
 
+// A second POST must not replace the promise shutdown waits on, or a run from
+// another process.
+export function syncBusy(db: Database, syncing: unknown): boolean {
+  return Boolean(syncing) || activeRun(db) !== null;
+}
+
 export function start(): void {
   const db = openDb(join(ROOT, 'data', 'musico.db'));
   let syncing: Promise<unknown> | null = null;
@@ -81,6 +87,7 @@ export function start(): void {
         }
 
         if (pathname === '/api/sync' && request.method === 'POST') {
+          if (syncBusy(db, syncing)) return json({ error: 'A sync is already running.' }, 409);
           const config = loadConfig();
           if (!config.playlist) return json({ error: 'No playlist set yet.' }, 400);
           // Fire and forget: the dashboard polls the database for progress.
