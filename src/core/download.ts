@@ -107,7 +107,9 @@ let activeChild: ReturnType<typeof Bun.spawn> | null = null;
 
 export function killActiveChild(): void {
   try {
-    activeChild?.kill();
+    // SIGINT, not SIGTERM: yt-dlp turns it into KeyboardInterrupt and kills ffmpeg.
+    // SIGTERM would leave ffmpeg writing the mp3 after sync deletes it.
+    activeChild?.kill('SIGINT');
   } catch {
     // Already gone.
   }
@@ -184,32 +186,44 @@ export async function downloadTrack(options: DownloadOptions): Promise<{ file: s
   let file = '';
   let duration: number | null = null;
 
-  const reader = (proc.stdout as ReadableStream<Uint8Array>).getReader();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    let newline = buffer.indexOf('\n');
-    while (newline >= 0) {
-      const line = buffer.slice(0, newline);
-      buffer = buffer.slice(newline + 1);
-      const event = parseProgressLine(line);
-      if (event) {
-        if (event.kind === 'done') file = event.file;
-        if (event.kind === 'begin') duration = event.duration;
-        options.onEvent?.(event);
+  try {
+    const reader = (proc.stdout as ReadableStream<Uint8Array>).getReader();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let newline = buffer.indexOf('\n');
+      while (newline >= 0) {
+        const line = buffer.slice(0, newline);
+        buffer = buffer.slice(newline + 1);
+        const event = parseProgressLine(line);
+        if (event) {
+          if (event.kind === 'done') file = event.file;
+          if (event.kind === 'begin') duration = event.duration;
+          options.onEvent?.(event);
+        }
+        newline = buffer.indexOf('\n');
       }
-      newline = buffer.indexOf('\n');
     }
+
+    const code = await proc.exited;
+    if (code !== 0) throw new Error(friendlyError(await stderrText));
+
+    // after_move is the completion signal. yt-dlp can exit 0 after an interrupt,
+    // and a truncated mp3 with the final name must not count as a finished track.
+    if (!file || !exists(file)) throw new Error('yt-dlp finished but no MP3 was written.');
+    return { file, duration };
+  } catch (error) {
+    // A stream error must not leave a live downloader writing after cleanup.
+    try {
+      proc.kill('SIGINT');
+    } catch {
+      // Already gone.
+    }
+    throw error;
+  } finally {
+    if (activeChild === proc) activeChild = null;
   }
-
-  const code = await proc.exited;
-  if (activeChild === proc) activeChild = null;
-  if (code !== 0) throw new Error(friendlyError(await stderrText));
-
-  const finalFile = file || `${options.dir}/${options.base}.mp3`;
-  if (!exists(finalFile)) throw new Error('yt-dlp finished but no MP3 was written.');
-  return { file: finalFile, duration };
 }
 
 function exists(path: string): boolean {

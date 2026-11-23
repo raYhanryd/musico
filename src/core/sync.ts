@@ -1,5 +1,5 @@
 import type { Database } from 'bun:sqlite';
-import { mkdirSync, rmSync, statSync } from 'node:fs';
+import { mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { ROOT, type Config } from './config';
 import { fileName, sanitizeName, splitTitle, downloadTrack, killActiveChild } from './download';
@@ -117,9 +117,10 @@ export async function runSync(config: Config, db: Database, hooks: Hooks = {}): 
         counts.added += 1;
         hooks.onDone?.(track);
       } catch (error) {
+        // A killed or failed conversion leaves a truncated mp3 and yt-dlp's source,
+        // thumbnail and .part files behind. None of them are safe to trust next run.
+        removeTrackFiles(dir, base);
         if (stopped()) {
-          // A killed conversion leaves a truncated mp3 the next run would trust.
-          rmSync(target, { force: true });
           setTrack(db, playlist.id, entry.id, { status: 'queued', progress: 0, error: null });
           break;
         }
@@ -140,6 +141,16 @@ export async function runSync(config: Config, db: Database, hooks: Hooks = {}): 
   } finally {
     if (stopped()) stopRun = null;
     finishRun(db, runId);
+  }
+}
+
+function removeTrackFiles(dir: string, base: string): void {
+  try {
+    for (const name of readdirSync(dir)) {
+      if (name.startsWith(`${base}.`)) rmSync(join(dir, name), { force: true });
+    }
+  } catch {
+    // The folder may not exist if listing failed before it was created.
   }
 }
 

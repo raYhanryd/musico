@@ -50,7 +50,7 @@ if (command === 'ui') {
     const parts = [`✓ ${summary.skipped} already here`, `↓ ${summary.added} downloaded`];
     if (summary.failed > 0) parts.push(`! ${summary.failed} failed`);
     console.log(`\n${parts.join('   ')}`);
-    console.log(`  saved in ${join(ROOT, config.outDir)}/`);
+    console.log(`  saved under ${join(ROOT, config.outDir)}/<playlist name>/`);
   } catch (error) {
     endLine();
     console.error(`\n${error instanceof Error ? error.message : String(error)}\n`);

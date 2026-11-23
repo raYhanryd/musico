@@ -126,6 +126,10 @@ body {
   padding: 0 22px 20px;
 }
 
+.strip[hidden] {
+  display: none;
+}
+
 .seg {
   position: relative;
   overflow: hidden;

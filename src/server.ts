@@ -17,7 +17,15 @@ function json(data: unknown, status = 200): Response {
 }
 
 function asset(name: string, type: string): Response {
-  return new Response(Bun.file(join(ROOT, 'src/web', name)), { headers: { 'content-type': type } });
+  return new Response(Bun.file(join(ROOT, 'src/web', name)), {
+    headers: { 'content-type': type, 'cache-control': 'no-store' },
+  });
+}
+
+// A public hostname can resolve to 127.0.0.1 (DNS rebinding); only serve our own names.
+export function isLocalHost(request: Request): boolean {
+  const host = new URL(request.url).hostname;
+  return host === '127.0.0.1' || host === 'localhost' || host === '[::1]' || host === '::1';
 }
 
 // Any page can POST to loopback; refuse writes that name a different origin.
@@ -28,6 +36,7 @@ export function sameOrigin(request: Request): boolean {
 
 export function start(): void {
   const db = openDb(join(ROOT, 'data', 'musico.db'));
+  let syncing: Promise<unknown> | null = null;
 
   let server: ReturnType<typeof Bun.serve>;
   try {
@@ -36,6 +45,8 @@ export function start(): void {
       port: PORT,
       fetch: async (request) => {
         const { pathname } = new URL(request.url);
+
+        if (!isLocalHost(request)) return new Response('Not found', { status: 404 });
 
         if (request.method === 'POST' && !sameOrigin(request)) {
           return json({ error: 'Cross-origin request refused.' }, 403);
@@ -73,9 +84,13 @@ export function start(): void {
           const config = loadConfig();
           if (!config.playlist) return json({ error: 'No playlist set yet.' }, 400);
           // Fire and forget: the dashboard polls the database for progress.
-          runSync(config, db).catch((error) => {
-            setMeta(db, 'lastError', error instanceof Error ? error.message : String(error));
-          });
+          syncing = runSync(config, db)
+            .catch((error) => {
+              setMeta(db, 'lastError', error instanceof Error ? error.message : String(error));
+            })
+            .finally(() => {
+              syncing = null;
+            });
           return json({ started: true }, 202);
         }
 
@@ -101,13 +116,19 @@ export function start(): void {
     process.exit(1);
   }
 
-  // Ctrl-c should take a running download down too, not just the dashboard.
-  const shutdown = () => {
+  // Ctrl-c should take a running download down too, and let sync remove its
+  // partial files before the process exits.
+  let closing = false;
+  const shutdown = async () => {
+    if (closing) return;
+    closing = true;
+    stopSync(db);
+    if (syncing) await Promise.race([syncing.catch(() => {}), Bun.sleep(5000)]);
     killActiveChild();
     process.exit(0);
   };
-  process.on('SIGINT', shutdown);
-  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', () => void shutdown());
+  process.on('SIGTERM', () => void shutdown());
 
   console.log(`Musico is at http://127.0.0.1:${server.port}  (ctrl-c to stop)`);
 }

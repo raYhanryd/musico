@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 export const ROOT = resolve(import.meta.dir, '../..');
@@ -33,6 +33,9 @@ export function loadConfig(): Config {
 
 export function saveConfig(patch: Partial<Config>): Config {
   const next = { ...loadConfig(), ...patch };
-  writeFileSync(FILE, `${JSON.stringify(next, null, 2)}\n`);
+  // Write-then-rename: a crash cannot leave a half-written config behind.
+  const temp = `${FILE}.${process.pid}.tmp`;
+  writeFileSync(temp, `${JSON.stringify(next, null, 2)}\n`);
+  renameSync(temp, FILE);
   return next;
 }

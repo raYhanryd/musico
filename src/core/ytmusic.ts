@@ -10,7 +10,7 @@ export function invalidPlaylistUrl(value: string): string | null {
     return 'That is not a link Musico can read.';
   }
 
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') return 'Use an https link.';
+  if (url.protocol !== 'https:') return 'Use an https link.';
   if (!/(^|\.)youtube\.com$/.test(url.hostname)) return 'Use a music.youtube.com playlist link.';
   if (!url.searchParams.get('list')) return 'That link has no playlist id. Use the playlist share link.';
   return null;
@@ -39,7 +39,18 @@ export async function listPlaylist(
 
   trackChild(proc);
   const stderrText = new Response(proc.stderr as ReadableStream<Uint8Array>).text();
-  const stdoutText = await new Response(proc.stdout as ReadableStream<Uint8Array>).text();
+  let stdoutText: string;
+  try {
+    stdoutText = await new Response(proc.stdout as ReadableStream<Uint8Array>).text();
+  } catch (error) {
+    try {
+      proc.kill('SIGINT');
+    } catch {
+      // Already gone.
+    }
+    untrackChild();
+    throw error;
+  }
   const code = await proc.exited;
   untrackChild();
   if (code !== 0) throw new Error(friendlyError(await stderrText));

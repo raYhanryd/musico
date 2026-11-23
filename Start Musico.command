@@ -35,14 +35,9 @@ if curl -sf -o /dev/null "$URL/api/state"; then
   exit 0
 fi
 
-# Keep 7777 when it is free; otherwise take the next free port.
-PORT=7777
-while lsof -ti "tcp:$PORT" -sTCP:LISTEN >/dev/null 2>&1; do
-  PORT=$((PORT + 1))
-done
-URL=http://127.0.0.1:$PORT
-
-# Show the dashboard once it answers, without blocking the server in the foreground.
+# One server at a time: two would share the database and race on syncs.
+# If 7777 belongs to another app, the server below says so instead of moving aside.
+# Show the front page once it answers, without blocking the server in the foreground.
 (
   for _ in $(seq 1 80); do
     if curl -sf -o /dev/null "$URL/api/state"; then
@@ -56,6 +51,6 @@ OPENER=$!
 
 trap 'kill "$OPENER" 2>/dev/null' EXIT INT TERM
 
-PORT=$PORT bun src/cli.ts ui
+PORT=7777 bun src/cli.ts ui
 echo
 echo "Musico stopped."
