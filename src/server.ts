@@ -66,7 +66,9 @@ export function start(): void {
           return json({ stopping: stopSync(db) });
         }
 
-        if (pathname === '/') return asset('index.html', 'text/html; charset=utf-8');
+        if (pathname === '/') return asset('landing.html', 'text/html; charset=utf-8');
+        if (pathname === '/landing.css') return asset('landing.css', 'text/css; charset=utf-8');
+        if (pathname === '/app' || pathname === '/app/') return asset('index.html', 'text/html; charset=utf-8');
         if (pathname === '/app.js') return asset('app.js', 'text/javascript; charset=utf-8');
         if (pathname === '/style.css') return asset('style.css', 'text/css; charset=utf-8');
 

@@ -5,8 +5,8 @@ anywhere; yt-dlp talks to YouTube directly from your machine.
 
 ## Use it
 
-1. Double-click **Start Musico.command**. The dashboard opens at
-   <http://127.0.0.1:7777>.
+1. Double-click **Start Musico.command**. The Musico front page opens at
+   <http://127.0.0.1:7777>; press **Open the deck** to reach the dashboard.
 2. Paste a playlist link (YouTube Music → menu next to the playlist → Share →
    Copy link) and press **Save and download**.
 3. Files land in `downloads/<playlist name>/`.
@@ -31,7 +31,7 @@ The launcher checks all three and tells you what is missing.
 ## Terminal (optional)
 
 ```bash
-bun run ui     # dashboard
+bun run ui     # front page and dashboard
 bun run sync   # download the saved playlist without opening the browser
 bun test       # offline unit tests
 ```
@@ -42,7 +42,7 @@ bun test       # offline unit tests
 Start Musico.command   double-click launcher
 src/core/              yt-dlp calls, naming, parsing, SQLite state
 src/server.ts          local dashboard server
-src/web/               one page, no build step
+src/web/               front page and dashboard, no build step
 downloads/             your MP3s (git-ignored)
 data/                  local SQLite state (git-ignored)
 ```

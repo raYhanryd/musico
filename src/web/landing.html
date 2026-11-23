@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#dde1e0" />
+    <meta
+      name="description"
+      content="Musico turns a YouTube Music playlist into a folder of tagged MP3s on your Mac. Nothing is uploaded."
+    />
+    <title>Musico — your playlist, pressed to disk</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/landing.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="masthead">
+      <a class="wordmark" href="/">Musico</a>
+      <p class="mast-meta">A local press for YouTube Music</p>
+      <a class="deck-link" href="/app">Open the deck</a>
+    </header>
+
+    <main id="main">
+      <section class="hero">
+        <div class="hero-copy">
+          <h1>Your playlist,<br />pressed to disk.</h1>
+          <p class="lede">
+            Paste a YouTube Music playlist. Musico pulls every track onto your Mac as an MP3, with its artwork and
+            tags intact. Nothing is uploaded. The folder is yours.
+          </p>
+          <div class="hero-actions">
+            <a class="cta" href="/app">Open the deck</a>
+            <a class="text-link" href="#how">How it works</a>
+          </div>
+          <p class="hero-fine">Runs at 127.0.0.1. Needs yt-dlp and ffmpeg.</p>
+        </div>
+
+        <div class="sleeve" aria-hidden="true">
+          <div class="sleeve-disc"><span class="sleeve-label"></span></div>
+          <div class="sleeve-face">
+            <span class="sleeve-cat">MUSICO 001</span>
+            <span class="sleeve-print">A playlist<br />pressing.</span>
+            <span class="sleeve-foot"><span>33⅓ rpm</span><span>Side A</span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="story" id="how" aria-labelledby="how-title">
+        <div class="story-stage">
+          <div class="platter" aria-hidden="true">
+            <span class="platter-glow"></span>
+            <div class="arm">
+              <span class="arm-base"></span>
+              <span class="arm-bar"><span class="arm-head"></span></span>
+            </div>
+            <div class="disc-turn">
+              <div class="disc">
+                <div class="label">
+                  <span class="label-top">
+                    <span class="label-brand">Musico</span>
+                    <span class="label-side">Side A</span>
+                  </span>
+                  <span class="spindle"></span>
+                  <span class="label-meta">33⅓ rpm<br />local pressing</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="story-copy">
+            <h2 class="story-title" id="how-title">How it works</h2>
+            <ol class="chapters">
+              <li class="chapter">
+                <span class="chapter-no">01</span>
+                <h3>Point it at a playlist.</h3>
+                <p>
+                  Open the playlist in YouTube Music, choose Share and copy the link. Paste it into the deck; Musico
+                  reads the tracklist once.
+                </p>
+              </li>
+              <li class="chapter">
+                <span class="chapter-no">02</span>
+                <h3>It skips what you already have.</h3>
+                <p>
+                  Every file carries its video id. If the MP3 is already on disk, Musico leaves it alone. If it is
+                  missing or empty, it fetches it again.
+                </p>
+              </li>
+              <li class="chapter">
+                <span class="chapter-no">03</span>
+                <h3>The folder is yours.</h3>
+                <p>
+                  Tracks land in <code>downloads/&lt;playlist&gt;/</code> as tagged MP3s with cover art. Take them to
+                  any player; nothing checks back in.
+                </p>
+              </li>
+            </ol>
+          </div>
+
+          <div class="story-rail" aria-hidden="true">
+            <span class="rail-track"><i></i></span>
+            <span class="rail-words"><span>link</span><span>list</span><span>disk</span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="specs" aria-labelledby="specs-title">
+        <div class="specs-head">
+          <h2 id="specs-title">What lands on disk.</h2>
+          <p>No library to maintain, no account to keep. Just files a player can open.</p>
+        </div>
+
+        <div class="specimen" aria-hidden="true">
+          <div class="specimen-bar"><span>downloads / A playlist pressing</span><span>3 files, 24.6 MB</span></div>
+          <div class="specimen-body">
+            <p class="specimen-folder">A playlist pressing/</p>
+            <p class="specimen-file">
+              <span class="specimen-at">A1</span>
+              <span class="specimen-name">Artist - First Track</span>
+              <em>[a1B2c3D4e5F].mp3</em>
+            </p>
+            <p class="specimen-file">
+              <span class="specimen-at">A2</span>
+              <span class="specimen-name">Artist - Second Track</span>
+              <em>[f6G7h8I9j0K].mp3</em>
+            </p>
+            <p class="specimen-file">
+              <span class="specimen-at">B1</span>
+              <span class="specimen-name">Artist - Third Track</span>
+              <em>[l1M2n3O4p5Q].mp3</em>
+            </p>
+          </div>
+        </div>
+
+        <dl class="spec-list">
+          <div>
+            <dt>MP3, quality 0</dt>
+            <dd>ffmpeg extracts the best audio and encodes VBR at the top setting.</dd>
+          </div>
+          <div>
+            <dt>Artwork and tags inside</dt>
+            <dd>Cover art, title, artist and album are embedded in the file.</dd>
+          </div>
+          <div>
+            <dt>One folder per playlist</dt>
+            <dd>Named after the playlist and written inside downloads/.</dd>
+          </div>
+          <div>
+            <dt>A clean stop</dt>
+            <dd>Stopping mid-conversion removes the partial MP3 instead of keeping it.</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="closing" aria-labelledby="closing-title">
+        <h2 id="closing-title">Put the needle down.</h2>
+        <a class="cta" href="/app">Open the deck</a>
+        <p>Everything stays on this Mac.</p>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>Musico</p>
+      <p>Bun, yt-dlp, ffmpeg</p>
+      <a href="/app">Open the deck</a>
+    </footer>
+  </body>
+</html>
