@@ -1,7 +1,7 @@
 import type { Database } from 'bun:sqlite';
 import { statSync } from 'node:fs';
 import { join } from 'node:path';
-import { ROOT, loadConfig, saveConfig } from './core/config';
+import { ROOT, invalidCookies, loadConfig, saveConfig } from './core/config';
 import { activeRun, getMeta, latestRun, listTracks, openDb, setMeta } from './core/db';
 import { fileName, killActiveChild, sanitizeName, splitTitle } from './core/download';
 import { runSync, stopSync } from './core/sync';
@@ -44,11 +44,28 @@ export function start(): void {
         if (pathname === '/api/state' && request.method === 'GET') return json(buildState(db));
 
         if (pathname === '/api/config' && request.method === 'POST') {
-          const body = (await request.json().catch(() => null)) as { playlist?: unknown } | null;
-          const playlist = typeof body?.playlist === 'string' ? body.playlist.trim() : '';
-          const invalid = invalidPlaylistUrl(playlist);
-          if (invalid) return json({ error: invalid }, 400);
-          saveConfig({ playlist });
+          const body = (await request.json().catch(() => null)) as
+            | { playlist?: unknown; cookiesFromBrowser?: unknown }
+            | null;
+          if (!body) return json({ error: 'Send a playlist or a browser setting.' }, 400);
+
+          const patch: { playlist?: string; cookiesFromBrowser?: string | null } = {};
+          if (body.playlist !== undefined) {
+            const playlist = typeof body.playlist === 'string' ? body.playlist.trim() : '';
+            const invalid = invalidPlaylistUrl(playlist);
+            if (invalid) return json({ error: invalid }, 400);
+            patch.playlist = playlist;
+          }
+          if (body.cookiesFromBrowser !== undefined) {
+            const cookies = typeof body.cookiesFromBrowser === 'string' ? body.cookiesFromBrowser.trim() : '';
+            const invalid = invalidCookies(cookies);
+            if (invalid) return json({ error: invalid }, 400);
+            patch.cookiesFromBrowser = cookies || null;
+          }
+          if (patch.playlist === undefined && patch.cookiesFromBrowser === undefined) {
+            return json({ error: 'Send a playlist or a browser setting.' }, 400);
+          }
+          saveConfig(patch);
           return json({ ok: true });
         }
 

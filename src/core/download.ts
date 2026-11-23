@@ -85,10 +85,10 @@ export function parseProgressLine(line: string): ProgressEvent | null {
 export function friendlyError(stderr: string): string {
   const text = stderr.toLowerCase();
   if (text.includes('sign in to confirm') || text.includes('not a bot')) {
-    return 'YouTube asked for a sign-in. Run "brew upgrade yt-dlp"; if that does not help, set "cookiesFromBrowser": "firefox" in musico.config.json.';
+    return 'YouTube asked for a sign-in. Run "brew upgrade yt-dlp"; if that does not help, pick your browser in the dashboard.';
   }
   if (text.includes('private') || text.includes('members-only') || text.includes('join this channel')) {
-    return 'This playlist is not public. Set "cookiesFromBrowser": "firefox" in musico.config.json so Musico can see it.';
+    return 'This playlist is not public. Pick the browser you are signed in with in the dashboard.';
   }
   if (text.includes('command not found') || text.includes('no such file or directory')) {
     return 'yt-dlp or ffmpeg is missing. Run "brew install yt-dlp ffmpeg".';

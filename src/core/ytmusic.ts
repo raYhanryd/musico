@@ -69,7 +69,7 @@ export async function listPlaylist(
 
   if (entries.length === 0) {
     throw new Error(
-      'No playable tracks in that playlist. If it is private, set "cookiesFromBrowser": "firefox" in musico.config.json, then run it again.',
+      'No playable tracks in that playlist. If it is private, pick your browser in the dashboard and try again.',
     );
   }
 

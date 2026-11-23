@@ -4,6 +4,7 @@ const rows = new Map();
 const announced = new Map();
 let stripSignature = '';
 let editing = false;
+let cookiesLoaded = false;
 let timer = null;
 let metaA = null;
 let metaB = null;
@@ -91,6 +92,10 @@ function row(track) {
 
 function render(state) {
   const configured = Boolean(state.config?.playlist);
+  if (!cookiesLoaded) {
+    $('cookies').value = state.config?.cookiesFromBrowser ?? '';
+    cookiesLoaded = true;
+  }
   // A bad saved link must not trap the user: let them paste another one.
   $('setup').hidden = configured && !state.error && !editing;
   $('table-wrap').hidden = !configured;
@@ -282,7 +287,7 @@ $('setup-form').addEventListener('submit', async (event) => {
   const response = await fetch('/api/config', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ playlist }),
+    body: JSON.stringify({ playlist, cookiesFromBrowser: $('cookies').value || null }),
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -299,6 +304,19 @@ $('setup-form').addEventListener('submit', async (event) => {
     setText($('banner'), error.error || 'Could not start the download.');
   }
   tick();
+});
+
+$('cookies').addEventListener('change', async () => {
+  const response = await fetch('/api/config', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ cookiesFromBrowser: $('cookies').value || null }),
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    $('banner').hidden = false;
+    setText($('banner'), body.error || 'Could not save that setting.');
+  }
 });
 
 $('change').addEventListener('click', () => {

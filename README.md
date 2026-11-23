@@ -16,10 +16,10 @@ To switch playlists, press **Change playlist** in the header, paste the new link
 and press **Save and download**. The last playlist is remembered in
 `musico.config.json`.
 
-**Private playlists, or “sign in to confirm you're not a bot”:** set
-`"cookiesFromBrowser": "firefox"` (or `chrome`, `safari`, `edge`) in
-`musico.config.json` and start again. If YouTube still complains, update yt-dlp
-with `brew upgrade yt-dlp`.
+**Private playlists, or “sign in to confirm you're not a bot”:** in the
+dashboard, pick the browser you are signed in to YouTube Music with (Chrome,
+Safari, Firefox or Edge) under the playlist field, then save. If YouTube still
+complains, update yt-dlp with `brew upgrade yt-dlp`.
 
 ## Requirements
 

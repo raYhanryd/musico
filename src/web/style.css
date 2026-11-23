@@ -236,6 +236,32 @@ body {
   border-color: var(--ink);
 }
 
+.cookies {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+#cookies {
+  padding: 8px 10px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--canvas);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+}
+
+#cookies:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 0;
+  border-color: var(--ink);
+}
+
 .hint {
   max-width: 64ch;
   margin: 16px 0 0;

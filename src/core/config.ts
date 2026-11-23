@@ -10,6 +10,13 @@ export type Config = {
   cookiesFromBrowser: string | null;
 };
 
+const BROWSERS = ['chrome', 'safari', 'firefox', 'edge'];
+
+// yt-dlp reads the cookies of a signed-in browser; anything else is a typo.
+export function invalidCookies(value: string): string | null {
+  return value && !BROWSERS.includes(value) ? 'Choose Chrome, Safari, Firefox or Edge.' : null;
+}
+
 export function loadConfig(): Config {
   let raw: Partial<Config> = {};
   try {
